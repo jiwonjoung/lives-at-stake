@@ -1,0 +1,486 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Animal Lives at Stake by Country</title>
+    <meta
+      name="description"
+      content="Estimated number of animals slaughtered for food by country and meat type."
+    />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&display=swap"
+      rel="stylesheet"
+    />
+    <script src="https://cdn.plot.ly/plotly-2.35.2.min.js" defer></script>
+    <style>
+      :root {
+        --bg-start: #f4f7fb;
+        --bg-end: #eef6ee;
+        --card: #ffffff;
+        --text: #1c2430;
+        --muted: #5a6677;
+        --border: #d9e1ea;
+        --accent: #1f7a8c;
+        --accent-soft: #e4f3f6;
+        --poultry: #bc8e5a;
+        --beef: #883039;
+        --sheep: #6d3e91;
+        --pork: #d73c50;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "IBM Plex Sans", sans-serif;
+        color: var(--text);
+        background: radial-gradient(circle at top left, #ffffff 0%, transparent 40%),
+          linear-gradient(120deg, var(--bg-start), var(--bg-end));
+      }
+
+      .wrap {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 24px 16px 40px;
+      }
+
+      .title {
+        margin: 0 0 8px;
+        font-size: clamp(1.3rem, 2.3vw, 2rem);
+        line-height: 1.2;
+      }
+
+      .subtitle {
+        margin: 0 0 20px;
+        color: var(--muted);
+        font-size: 0.98rem;
+      }
+
+      .card {
+        background: var(--card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: 0 10px 30px rgba(27, 42, 64, 0.07);
+        padding: 14px;
+      }
+
+      .controls {
+        display: grid;
+        grid-template-columns: repeat(5, minmax(120px, 1fr));
+        gap: 10px;
+        margin-bottom: 12px;
+      }
+
+      .control {
+        display: flex;
+        flex-direction: column;
+        gap: 6px;
+      }
+
+      .control label {
+        font-size: 0.78rem;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        color: var(--muted);
+        font-weight: 600;
+      }
+
+      .control select,
+      .control input {
+        font: inherit;
+        width: 100%;
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 8px 10px;
+        background: #fff;
+        color: var(--text);
+      }
+
+      .control input[type="range"] {
+        accent-color: var(--accent);
+        padding: 0;
+      }
+
+      .slider-row {
+        display: flex;
+        justify-content: space-between;
+        gap: 8px;
+        align-items: center;
+        font-size: 0.82rem;
+        color: var(--muted);
+      }
+
+      #chart {
+        min-height: 560px;
+      }
+
+      .legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin: 6px 0 0;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        border: 1px solid var(--border);
+        border-radius: 999px;
+        padding: 5px 9px;
+        font-size: 0.78rem;
+        background: #fff;
+      }
+
+      .dot {
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+      }
+
+      .status {
+        margin-top: 10px;
+        color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .status.error {
+        color: #8b1e30;
+      }
+
+      .footer-note {
+        margin-top: 14px;
+        color: var(--muted);
+        font-size: 0.84rem;
+      }
+
+      @media (max-width: 900px) {
+        .controls {
+          grid-template-columns: 1fr 1fr;
+        }
+
+        #chart {
+          min-height: 520px;
+        }
+      }
+
+      @media (max-width: 520px) {
+        .controls {
+          grid-template-columns: 1fr;
+        }
+
+        #chart {
+          min-height: 470px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrap">
+      <h1 class="title">Estimated Animal Lives Killed for Food, by Country</h1>
+      <p class="subtitle">
+        Dynamic chart using OWID API indicators (no downloaded dataset). Values are animals slaughtered per year.
+      </p>
+
+      <div class="card">
+        <div class="controls">
+          <div class="control">
+            <label for="country">Country</label>
+            <select id="country"></select>
+          </div>
+
+          <div class="control">
+            <label for="year">Year</label>
+            <select id="year"></select>
+          </div>
+
+          <div class="control">
+            <label for="sortBy">Sort by</label>
+            <select id="sortBy"></select>
+          </div>
+
+          <div class="control">
+            <label for="sortOrder">Order</label>
+            <select id="sortOrder">
+              <option value="desc">Highest first</option>
+              <option value="asc">Lowest first</option>
+            </select>
+          </div>
+
+          <div class="control">
+            <label for="topN">Max rows (All countries)</label>
+            <input id="topN" type="range" min="10" max="250" step="1" value="50" />
+            <div class="slider-row">
+              <span>Top rows</span>
+              <strong id="topNValue">50</strong>
+            </div>
+          </div>
+        </div>
+
+        <div id="chart"></div>
+
+        <div class="legend" aria-hidden="true">
+          <span class="pill"><span class="dot" style="background: var(--poultry)"></span>Poultry</span>
+          <span class="pill"><span class="dot" style="background: var(--beef)"></span>Beef and buffalo</span>
+          <span class="pill"><span class="dot" style="background: var(--sheep)"></span>Sheep and goat</span>
+          <span class="pill"><span class="dot" style="background: var(--pork)"></span>Pork</span>
+        </div>
+
+        <div id="status" class="status">Loading data...</div>
+
+        <p class="footer-note">
+          Source: UN FAO via Our World in Data API. Countries are filtered to ISO3-coded entities, plus World.
+        </p>
+      </div>
+    </div>
+
+    <script>
+      const SERIES = [
+        { key: "poultry", id: 1018734, label: "Poultry", color: "#bc8e5a" },
+        { key: "beef", id: 1018674, label: "Beef and buffalo", color: "#883039" },
+        { key: "sheep", id: 1018744, label: "Sheep and goat", color: "#6d3e91" },
+        { key: "pork", id: 1018729, label: "Pork", color: "#d73c50" },
+      ];
+
+      const API = "https://api.ourworldindata.org/v1/indicators";
+
+      const countrySelect = document.getElementById("country");
+      const yearSelect = document.getElementById("year");
+      const sortBySelect = document.getElementById("sortBy");
+      const sortOrderSelect = document.getElementById("sortOrder");
+      const topNInput = document.getElementById("topN");
+      const topNValue = document.getElementById("topNValue");
+      const statusEl = document.getElementById("status");
+
+      const state = {
+        entities: [],
+        years: [],
+        yearToValuesBySeries: new Map(),
+      };
+
+      function setStatus(text, isError = false) {
+        statusEl.textContent = text;
+        statusEl.classList.toggle("error", isError);
+      }
+
+      function sortRows(rows, field, order) {
+        const sorted = [...rows].sort((a, b) => {
+          const av = field === "total" ? a.total : a.values[field] || 0;
+          const bv = field === "total" ? b.total : b.values[field] || 0;
+          return av - bv;
+        });
+        return order === "desc" ? sorted.reverse() : sorted;
+      }
+
+      function formatLabel(value) {
+        return new Intl.NumberFormat("en-US", { maximumFractionDigits: 0 }).format(value);
+      }
+
+      function getRowsForYear(year) {
+        const rows = [];
+
+        for (const entity of state.entities) {
+          const values = {};
+          let total = 0;
+          let hasAny = false;
+
+          for (const series of SERIES) {
+            const mapByEntity = state.yearToValuesBySeries.get(series.key)?.get(year);
+            const value = mapByEntity?.get(entity.id);
+            const cleanValue = Number.isFinite(value) ? value : 0;
+            values[series.key] = cleanValue;
+            if (Number.isFinite(value)) {
+              total += cleanValue;
+              hasAny = true;
+            }
+          }
+
+          if (!hasAny) continue;
+
+          rows.push({
+            id: entity.id,
+            name: entity.name,
+            values,
+            total,
+          });
+        }
+
+        return rows;
+      }
+
+      function populateControls(defaultYear) {
+        countrySelect.innerHTML = [
+          '<option value="all">All countries</option>',
+          ...state.entities.map((e) => `<option value="${e.id}">${e.name}</option>`),
+        ].join("");
+
+        yearSelect.innerHTML = state.years
+          .map((year) => `<option value="${year}">${year}</option>`)
+          .join("");
+        yearSelect.value = String(defaultYear);
+
+        sortBySelect.innerHTML = [
+          '<option value="total">Total animals slaughtered</option>',
+          ...SERIES.map((s) => `<option value="${s.key}">${s.label}</option>`),
+        ].join("");
+      }
+
+      function render() {
+        const year = Number(yearSelect.value);
+        const sortBy = sortBySelect.value;
+        const sortOrder = sortOrderSelect.value;
+        const country = countrySelect.value;
+        const topN = Number(topNInput.value);
+
+        let rows = getRowsForYear(year);
+
+        if (country !== "all") {
+          const wanted = Number(country);
+          rows = rows.filter((r) => r.id === wanted);
+        }
+
+        rows = sortRows(rows, sortBy, sortOrder);
+
+        if (country === "all") {
+          rows = rows.slice(0, topN);
+        }
+
+        const y = rows.map((r) => r.name);
+
+        const traces = SERIES.map((series) => ({
+          x: rows.map((r) => r.values[series.key]),
+          y,
+          name: series.label,
+          type: "bar",
+          orientation: "h",
+          marker: { color: series.color },
+          hovertemplate: `%{y}<br>${series.label}: %{x:,}<extra></extra>`,
+        }));
+
+        Plotly.newPlot(
+          "chart",
+          traces,
+          {
+            barmode: "stack",
+            paper_bgcolor: "transparent",
+            plot_bgcolor: "#ffffff",
+            margin: { l: 210, r: 25, t: 18, b: 46 },
+            xaxis: {
+              title: "Animals slaughtered (count)",
+              tickformat: ",",
+              gridcolor: "#e8edf4",
+            },
+            yaxis: {
+              automargin: true,
+              tickfont: { size: country === "all" ? 11 : 12 },
+              categoryorder: "array",
+              categoryarray: y,
+            },
+            legend: {
+              orientation: "h",
+              y: -0.22,
+              x: 0,
+            },
+            hovermode: "closest",
+          },
+          { responsive: true, displaylogo: false }
+        );
+
+        if (rows.length === 0) {
+          setStatus(`No data available for selected filters in ${year}.`, true);
+        } else {
+          const scopeText = country === "all" ? `${rows.length} countries shown` : rows[0].name;
+          const sortLabel = sortBySelect.options[sortBySelect.selectedIndex].text;
+          setStatus(`${scopeText}. Sorted by ${sortLabel} (${sortOrder}).`);
+        }
+      }
+
+      async function fetchSeries(series) {
+        const [metadataRes, dataRes] = await Promise.all([
+          fetch(`${API}/${series.id}.metadata.json`),
+          fetch(`${API}/${series.id}.data.json`),
+        ]);
+        if (!metadataRes.ok || !dataRes.ok) {
+          throw new Error(`Failed loading indicator ${series.id}`);
+        }
+        const metadata = await metadataRes.json();
+        const data = await dataRes.json();
+        return { metadata, data, series };
+      }
+
+      function buildEntityList(entityMetaValues) {
+        const countries = entityMetaValues
+          .filter((e) => {
+            if (e.name === "World") return true;
+            return typeof e.code === "string" && /^[A-Z]{3}$/.test(e.code);
+          })
+          .map((e) => ({ id: e.id, name: e.name }))
+          .sort((a, b) => {
+            if (a.name === "World") return 1;
+            if (b.name === "World") return -1;
+            return a.name.localeCompare(b.name);
+          });
+
+        return countries;
+      }
+
+      function indexDataByYearAndEntity(data) {
+        const out = new Map();
+        for (let i = 0; i < data.values.length; i += 1) {
+          const year = data.years[i];
+          const entity = data.entities[i];
+          const value = data.values[i];
+          if (!out.has(year)) out.set(year, new Map());
+          out.get(year).set(entity, value);
+        }
+        return out;
+      }
+
+      async function init() {
+        try {
+          setStatus("Loading OWID API data...");
+          const results = await Promise.all(SERIES.map(fetchSeries));
+
+          const baseMeta = results[0].metadata;
+          const entityMetaValues = baseMeta.dimensions.entities.values;
+          state.entities = buildEntityList(entityMetaValues);
+
+          const years = new Set();
+
+          for (const { series, data } of results) {
+            const indexed = indexDataByYearAndEntity(data);
+            state.yearToValuesBySeries.set(series.key, indexed);
+            for (const year of indexed.keys()) years.add(year);
+          }
+
+          state.years = [...years].sort((a, b) => a - b);
+          const defaultYear = Math.max(...state.years);
+
+          populateControls(defaultYear);
+          topNValue.textContent = topNInput.value;
+
+          countrySelect.addEventListener("change", render);
+          yearSelect.addEventListener("change", render);
+          sortBySelect.addEventListener("change", render);
+          sortOrderSelect.addEventListener("change", render);
+          topNInput.addEventListener("input", () => {
+            topNValue.textContent = topNInput.value;
+            render();
+          });
+
+          render();
+        } catch (err) {
+          console.error(err);
+          setStatus(`Failed to load data: ${err.message}`, true);
+        }
+      }
+
+      window.addEventListener("load", init);
+    </script>
+  </body>
+</html>
